@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Absensi Pabrik</title>
+<style>
+:root{--bg:#f2f4f1;--ink:#1c2a29;--mut:#5d6b69;--pri:#0f5e59;--pri2:#0b4743;--line:#d3dad7;--card:#fff;--bad:#b3261e;--ok:#1b7a3d;--amb:#f2a900}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:480px;margin:0 auto;padding:16px 16px 88px}
+h1{font-size:1.4rem;margin:8px 0 2px}h2{font-size:1.1rem;margin:20px 0 8px}
+p.s{color:var(--mut);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:12px}
+label{display:block;font-weight:600;margin:12px 0 4px}
+input,select,textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:13px 16px;background:var(--pri);color:#fff;width:100%;margin-top:14px;cursor:pointer}
+button:hover{background:var(--pri2)}button:disabled{opacity:.55}
+button.ghost{background:transparent;color:var(--pri);border:1px solid var(--pri)}
+:focus-visible{outline:3px solid var(--amb);outline-offset:2px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#fff;border-top:1px solid var(--line)}
+nav button{margin:0;border-radius:0;background:none;color:var(--mut);padding:14px 4px;flex:1}
+nav button.on{color:var(--pri);box-shadow:inset 0 3px 0 var(--pri)}
+.cam{position:relative;display:none;margin:12px 0}
+.cam video{width:100%;border-radius:10px;background:#000;transform:scaleX(-1)}
+.cam.on{display:block}
+.ring{position:absolute;inset:8% 22%;border:3px solid var(--amb);border-radius:50%;pointer-events:none}
+#hint{font-weight:600;text-align:center;margin-top:8px;min-height:1.5em}
+#toast{position:fixed;left:16px;right:16px;top:12px;max-width:448px;margin:auto;padding:12px 14px;border-radius:8px;color:#fff;display:none;z-index:9}
+#toast.ok{background:var(--ok)}#toast.bad{background:var(--bad)}
+ul{list-style:none;padding:0;margin:0}li{padding:8px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+li small{color:var(--mut);display:block}
+.tag{font-weight:600;white-space:nowrap}.Disetujui,.Diterima{color:var(--ok)}.Ditolak{color:var(--bad)}.Menunggu{color:#8a6100}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div id="toast" role="alert"></div>
+<main>
+  <!-- LOGIN -->
+  <section id="v-login">
+    <h1>Absensi Pabrik</h1><p class="s">Masuk dengan ID pegawai dan PIN dari HRD.</p>
+    <div class="card">
+      <label for="l-id">ID pegawai</label><input id="l-id" autocomplete="username">
+      <label for="l-pin">PIN</label><input id="l-pin" type="password" inputmode="numeric" autocomplete="current-password">
+      <button id="b-login">Masuk</button>
+    </div>
+  </section>
+
+  <!-- APP -->
+  <section id="v-app" class="hide">
+    <h1 id="hi"></h1><p class="s" id="sub"></p>
+
+    <div id="t-absen">
+      <div class="card">
+        <div id="enroll-note" class="hide"><b>Wajah belum terdaftar.</b> Daftarkan sekali sebelum absen pertama. Dengan mendaftar, Anda menyetujui data wajah disimpan untuk keperluan absensi.</div>
+        <div class="cam" id="cam"><video id="video" playsinline muted></video><div class="ring"></div></div>
+        <div id="hint"></div>
+        <button id="b-absen">Absen sekarang</button>
+        <button id="b-enroll" class="hide">Daftarkan wajah</button>
+      </div>
+    </div>
+
+    <div id="t-cuti" class="hide">
+      <div class="card">
+        <label for="c-jenis">Jenis cuti</label>
+        <select id="c-jenis"><option>Tahunan</option><option>Melahirkan</option><option>Menikah</option><option>Duka</option></select>
+        <label for="c-mulai">Tanggal mulai</label><input id="c-mulai" type="date">
+        <label for="c-selesai">Tanggal selesai</label><input id="c-selesai" type="date">
+        <label for="c-alasan">Alasan</label><textarea id="c-alasan" rows="3"></textarea>
+        <button id="b-cuti">Ajukan cuti</button>
+      </div>
+    </div>
+
+    <div id="t-sakit" class="hide">
+      <div class="card">
+        <label for="s-tgl">Tanggal sakit</label><input id="s-tgl" type="date">
+        <label for="s-file">Surat dokter (JPG, PNG, PDF, maks 5 MB)</label>
+        <input id="s-file" type="file" accept="image/jpeg,image/png,application/pdf">
+        <button id="b-sakit">Kirim surat sakit</button>
+      </div>
+    </div>
+
+    <div id="t-riw" class="hide">
+      <h2>Absen terakhir</h2><div class="card"><ul id="r-absen"></ul></div>
+      <h2>Cuti</h2><div class="card"><ul id="r-cuti"></ul></div>
+      <h2>Sakit</h2><div class="card"><ul id="r-sakit"></ul></div>
+    </div>
+    <button class="ghost" id="b-out">Keluar</button>
+  </section>
+</main>
+<nav id="nav" class="hide">
+  <button data-t="absen" class="on">Absen</button><button data-t="cuti">Cuti</button>
+  <button data-t="sakit">Sakit</button><button data-t="riw">Riwayat</button>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbx9BfR-LbiMxXfFD11g33AAXGqGO7Qs_VYMdfFU3FI5f6IJ0e6XHFdpSi9XbMSQ0eZcRA/exec';
+const MODELS = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
+const $ = id => document.getElementById(id);
+let S = JSON.parse(localStorage.getItem('sess') || 'null'), me = {}, loaded = false, stream = null;
+
+const device = () => localStorage.dev || (localStorage.dev = crypto.randomUUID());
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function toast(m, ok) { const t = $('toast'); t.textContent = m; t.className = ok ? 'ok' : 'bad'; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 5000); }
+async function call(action, data = {}) {
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action, id: S && S.id, pin: S && S.pin, device: device(), ...data }) });
+  const j = await r.json(); if (!j.ok) throw new Error(j.msg); return j;
+}
+async function busy(btn, fn) {
+  const t = btn.textContent; btn.disabled = true; btn.textContent = 'Memproses…';
+  try { await fn(); } catch (e) { toast(e.message || 'Terjadi kesalahan'); }
+  finally { btn.disabled = false; btn.textContent = t; stopCam(); $('hint').textContent = ''; }
+}
+
+/* ---- Login & navigasi ---- */
+async function enter() {
+  const j = await call('login'); me = j;
+  $('v-login').classList.add('hide'); $('v-app').classList.remove('hide'); $('nav').classList.remove('hide');
+  $('hi').textContent = 'Halo, ' + j.nama; $('sub').textContent = 'Sisa cuti tahunan: ' + j.sisaCuti + ' hari';
+  $('enroll-note').classList.toggle('hide', j.enrolled);
+  $('b-enroll').classList.toggle('hide', j.enrolled); $('b-absen').classList.toggle('hide', !j.enrolled);
+}
+$('b-login').onclick = e => busy(e.target, async () => {
+  S = { id: $('l-id').value.trim(), pin: $('l-pin').value }; await enter(); localStorage.sess = JSON.stringify(S);
+});
+$('b-out').onclick = () => { localStorage.removeItem('sess'); location.reload(); };
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  ['absen', 'cuti', 'sakit', 'riw'].forEach(t => $('t-' + t).classList.toggle('hide', t !== b.dataset.t));
+  if (b.dataset.t === 'riw') loadRiwayat().catch(e => toast(e.message));
+});
+
+/* ---- Kamera, lokasi, wajah ---- */
+async function loadModels() {
+  if (loaded) return; $('hint').textContent = 'Menyiapkan pengenalan wajah…';
+  await Promise.all([faceapi.nets.tinyFaceDetector, faceapi.nets.faceLandmark68Net, faceapi.nets.faceRecognitionNet].map(n => n.loadFromUri(MODELS)));
+  loaded = true;
+}
+async function startCam() {
+  stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 480 } });
+  $('video').srcObject = stream; await $('video').play(); $('cam').classList.add('on');
+}
+function stopCam() { if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; $('cam').classList.remove('on'); }
+const getPos = () => new Promise((res, rej) => navigator.geolocation.getCurrentPosition(p => res(p.coords),
+  () => rej(new Error('Izinkan akses lokasi lalu coba lagi')), { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }));
+
+// live=true: wajib menengok ke satu sisi lalu kembali menghadap depan (anti foto/video statis)
+async function scanFace(live) {
+  const opt = new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }), v = $('video'), t0 = Date.now();
+  let turned = false;
+  $('hint').textContent = live ? 'Tengok ke satu sisi, lalu kembali menghadap depan' : 'Hadap lurus ke kamera';
+  while (Date.now() - t0 < 20000) {
+    const r = await faceapi.detectSingleFace(v, opt).withFaceLandmarks().withFaceDescriptor();
+    if (r) {
+      const j = r.landmarks.getJawOutline(), n = r.landmarks.getNose()[3];
+      const ratio = (n.x - j[0].x) / (j[16].x - j[0].x), front = ratio > .42 && ratio < .58;
+      if (!live && front) return grab(r);
+      if (live) { if (ratio < .33 || ratio > .67) turned = true; else if (turned && front) return grab(r); }
+    }
+    await wait(120);
+  }
+  throw new Error('Wajah tidak terdeteksi. Coba lagi dengan cahaya cukup.');
+}
+function grab(r) {
+  const c = document.createElement('canvas'), v = $('video'); c.width = 320; c.height = 320 * v.videoHeight / v.videoWidth;
+  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+  return { descriptor: Array.from(r.descriptor), photo: c.toDataURL('image/jpeg', .6).split(',')[1] };
+}
+
+$('b-enroll').onclick = e => busy(e.target, async () => {
+  await loadModels(); await startCam();
+  const s = []; for (let i = 0; i < 3; i++) { s.push((await scanFace(false)).descriptor); await wait(600); }
+  const avg = s[0].map((_, k) => (s[0][k] + s[1][k] + s[2][k]) / 3);
+  const j = await call('enroll', { descriptor: avg }); toast(j.msg, true); await enter();
+});
+$('b-absen').onclick = e => busy(e.target, async () => {
+  const pos = await getPos(); await loadModels(); await startCam();
+  const f = await scanFace(true); stopCam();
+  const j = await call('absen', { lat: pos.latitude, lng: pos.longitude, accuracy: pos.accuracy, descriptor: f.descriptor, photo: f.photo });
+  toast(j.msg, true);
+});
+
+/* ---- Cuti & sakit ---- */
+$('b-cuti').onclick = e => busy(e.target, async () => {
+  const j = await call('cuti', { jenis: $('c-jenis').value, mulai: $('c-mulai').value, selesai: $('c-selesai').value, alasan: $('c-alasan').value.trim() });
+  toast(j.msg, true); $('c-alasan').value = '';
+});
+$('b-sakit').onclick = e => busy(e.target, async () => {
+  const f = $('s-file').files[0]; if (!f || !$('s-tgl').value) throw new Error('Isi tanggal dan pilih file surat');
+  if (f.size > 5 * 1024 * 1024) throw new Error('File maksimal 5 MB');
+  const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(f); });
+  const j = await call('sakit', { tanggal: $('s-tgl').value, file: b64, mime: f.type }); toast(j.msg, true); $('s-file').value = '';
+});
+
+/* ---- Riwayat ---- */
+async function loadRiwayat() {
+  const j = await call('riwayat');
+  const fill = (id, arr, fn) => $(id).innerHTML = arr.length ? arr.map(fn).join('') : '<li>Belum ada data</li>';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  fill('r-absen', j.absen, r => `<li><span>${esc(r.waktu)}</span><span class="tag">${esc(r.jenis)}</span></li>`);
+  fill('r-cuti', j.cuti, r => `<li><span>${esc(r.tgl)}<small>${esc(r.catatan)}</small></span><span class="tag ${esc(r.status)}">${esc(r.status)}</span></li>`);
+  fill('r-sakit', j.sakit, r => `<li><span>${esc(r.tgl)}<small>${esc(r.catatan)}</small></span><span class="tag ${esc(r.status)}">${esc(r.status)}</span></li>`);
+}
+
+if (S) enter().catch(() => localStorage.removeItem('sess'));
+</script>
+</body>
+</html>

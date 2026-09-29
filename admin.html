@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>HRD – Absensi Pabrik</title>
+<style>
+:root{--bg:#f2f4f1;--ink:#1c2a29;--mut:#5d6b69;--pri:#0f5e59;--pri2:#0b4743;--line:#d3dad7;--card:#fff;--bad:#b3261e;--ok:#1b7a3d;--amb:#f2a900}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:480px;margin:0 auto;padding:16px 16px 88px}
+h1{font-size:1.4rem;margin:8px 0 2px}h2{font-size:1.1rem;margin:20px 0 8px}
+p.s{color:var(--mut);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:12px}
+label{display:block;font-weight:600;margin:12px 0 4px}
+input,select,textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:13px 16px;background:var(--pri);color:#fff;width:100%;margin-top:14px;cursor:pointer}
+button:hover{background:var(--pri2)}button:disabled{opacity:.55}
+button.ghost{background:transparent;color:var(--pri);border:1px solid var(--pri)}
+:focus-visible{outline:3px solid var(--amb);outline-offset:2px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#fff;border-top:1px solid var(--line)}
+nav button{margin:0;border-radius:0;background:none;color:var(--mut);padding:14px 4px;flex:1}
+nav button.on{color:var(--pri);box-shadow:inset 0 3px 0 var(--pri)}
+.cam{position:relative;display:none;margin:12px 0}
+.cam video{width:100%;border-radius:10px;background:#000;transform:scaleX(-1)}
+.cam.on{display:block}
+.ring{position:absolute;inset:8% 22%;border:3px solid var(--amb);border-radius:50%;pointer-events:none}
+#hint{font-weight:600;text-align:center;margin-top:8px;min-height:1.5em}
+#toast{position:fixed;left:16px;right:16px;top:12px;max-width:448px;margin:auto;padding:12px 14px;border-radius:8px;color:#fff;display:none;z-index:9}
+#toast.ok{background:var(--ok)}#toast.bad{background:var(--bad)}
+ul{list-style:none;padding:0;margin:0}li{padding:8px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+li small{color:var(--mut);display:block}
+.tag{font-weight:600;white-space:nowrap}.Disetujui,.Diterima{color:var(--ok)}.Ditolak{color:var(--bad)}.Menunggu{color:#8a6100}
+.hide{display:none}
+main{max-width:720px}</style>
+</head>
+<body>
+<div id="toast" role="alert"></div>
+<main>
+  <section id="v-login">
+    <h1>Panel HRD</h1><p class="s">Khusus admin. Masuk dengan ID dan PIN akun admin.</p>
+    <div class="card">
+      <label for="l-id">ID admin</label><input id="l-id" autocomplete="username">
+      <label for="l-pin">PIN</label><input id="l-pin" type="password" inputmode="numeric" autocomplete="current-password">
+      <button id="b-login">Masuk</button>
+    </div>
+  </section>
+  <section id="v-app" class="hide">
+    <h1 id="hi"></h1><p class="s">Panel HRD · persetujuan dan data pegawai</p>
+    <div id="t-admin">
+      <h2>Menunggu persetujuan</h2><div class="card"><ul id="a-pend"></ul></div>
+      <h2>Tambah pegawai</h2>
+      <div class="card">
+        <label for="a-id">ID pegawai</label><input id="a-id" inputmode="numeric">
+        <label for="a-nama">Nama</label><input id="a-nama">
+        <label for="a-pin">PIN (6 digit)</label><input id="a-pin" inputmode="numeric" maxlength="6">
+        <button class="ghost" id="a-gen" type="button">Buat PIN acak</button>
+        <label for="a-atasan">Email atasan</label><input id="a-atasan" type="email">
+        <label for="a-cuti">Jatah cuti (hari)</label><input id="a-cuti" type="number" value="12">
+        <label><input type="checkbox" id="a-role" style="width:auto"> Jadikan admin HRD</label>
+        <button id="b-add">Tambah pegawai</button>
+      </div>
+      <h2>Daftar pegawai</h2><div class="card"><ul id="a-list"></ul></div>
+    </div>
+    <button class="ghost" id="b-out">Keluar</button>
+  </section>
+</main>
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbx9BfR-LbiMxXfFD11g33AAXGqGO7Qs_VYMdfFU3FI5f6IJ0e6XHFdpSi9XbMSQ0eZcRA/exec';
+const $ = id => document.getElementById(id);
+let S = JSON.parse(sessionStorage.getItem('sess') || 'null');
+const device = () => localStorage.dev || (localStorage.dev = crypto.randomUUID());
+function toast(m, ok) { const t = $('toast'); t.textContent = m; t.className = ok ? 'ok' : 'bad'; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 6000); }
+async function call(action, data = {}) {
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action, id: S && S.id, pin: S && S.pin, device: device(), ...data }) });
+  const j = await r.json(); if (!j.ok) throw new Error(j.msg); return j;
+}
+async function busy(btn, fn) {
+  const t = btn.textContent; btn.disabled = true; btn.textContent = 'Memproses…';
+  try { await fn(); } catch (e) { toast(e.message || 'Terjadi kesalahan'); }
+  finally { btn.disabled = false; btn.textContent = t; }
+}
+async function enter() {
+  const j = await call('login');
+  if (j.role !== 'admin') { S = null; sessionStorage.removeItem('sess'); throw new Error('Akun ini bukan admin HRD'); }
+  $('v-login').classList.add('hide'); $('v-app').classList.remove('hide');
+  $('hi').textContent = 'Halo, ' + j.nama; loadAdmin().catch(e => toast(e.message));
+}
+$('b-login').onclick = e => busy(e.target, async () => {
+  S = { id: $('l-id').value.trim(), pin: $('l-pin').value }; await enter(); sessionStorage.sess = JSON.stringify(S);
+});
+$('b-out').onclick = () => { sessionStorage.removeItem('sess'); location.reload(); };
+
+/* ---- Admin HRD ---- */
+const ex = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const rnd = () => String(Math.floor(100000 + Math.random() * 900000));
+$('a-gen').onclick = () => $('a-pin').value = rnd();
+$('b-add').onclick = e => busy(e.target, async () => {
+  const pin = $('a-pin').value;
+  const j = await call('admin_add', { newId: $('a-id').value, nama: $('a-nama').value, newPin: pin, atasan: $('a-atasan').value.trim(), cuti: $('a-cuti').value, role: $('a-role').checked ? 'admin' : '' });
+  toast(j.msg + '. PIN: ' + pin + ' (catat sekarang)', true);
+  ['a-id', 'a-nama', 'a-pin'].forEach(i => $(i).value = ''); loadAdmin();
+});
+async function loadAdmin() {
+  loadPending().catch(e => toast(e.message));
+  const j = await call('admin_list');
+  $('a-list').innerHTML = j.list.map(p => `<li><span>${ex(p.nama)}${p.role ? ' (admin)' : ''}<small>${ex(p.id)} · wajah ${p.wajah ? '✓' : '–'} · HP ${p.hp ? 'terkunci' : 'bebas'} · ${p.aktif ? 'aktif' : 'nonaktif'}</small></span>
+    <select data-id="${ex(p.id)}" aria-label="Aksi untuk ${ex(p.nama)}" style="width:auto"><option value="">Aksi…</option><option value="hp">Reset HP</option><option value="wajah">Reset wajah</option><option value="pin">PIN baru</option><option value="${p.aktif ? 'nonaktif' : 'aktif'}">${p.aktif ? 'Nonaktifkan' : 'Aktifkan'}</option></select></li>`).join('');
+}
+async function loadPending() {
+  const j = await call('admin_pending');
+  const row = (k, r, t, x) => `<li style="flex-direction:column"><span><b>${ex(r.nama)}</b> · ${t}<small>${x}</small></span><span style="display:flex;gap:8px"><button data-k="${k}" data-id="${ex(r.req)}" data-y="1" style="margin-top:6px">Setujui</button><button class="ghost" data-k="${k}" data-id="${ex(r.req)}" data-y="0" style="margin-top:6px">Tolak</button></span></li>`;
+  const l = [...j.cuti.map(r => row('cuti', r, ex(r.jenis) + ' ' + ex(r.tgl) + ' (' + ex(r.hari) + ' hari)', 'Alasan: ' + ex(r.alasan))),
+    ...j.sakit.map(r => row('sakit', r, 'Sakit ' + ex(r.tgl), `<a href="${ex(r.file)}" target="_blank" rel="noopener">Buka surat sakit</a>`))];
+  $('a-pend').innerHTML = l.length ? l.join('') : '<li>Tidak ada pengajuan yang menunggu</li>';
+}
+$('a-pend').onclick = async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const setuju = b.dataset.y === '1'; let cat = '';
+  if (setuju) { if (!confirm('Setujui pengajuan ini?')) return; }
+  else { cat = prompt('Alasan penolakan (opsional):'); if (cat === null) return; }
+  b.disabled = true;
+  try { const j = await call('admin_decide', { kind: b.dataset.k, reqId: b.dataset.id, setuju, catatan: cat }); toast(j.msg, true); loadAdmin(); }
+  catch (err) { toast(err.message); b.disabled = false; }
+};
+$('a-list').onchange = async e => {
+  const s = e.target, what = s.value; if (!what) return;
+  let pin = ''; if (what === 'pin') { pin = prompt('PIN baru (6 digit):', rnd()); if (!pin) { s.value = ''; return; } }
+  if (!confirm('Lanjutkan: ' + s.options[s.selectedIndex].text + '?')) { s.value = ''; return; }
+  try { const j = await call('admin_reset', { targetId: s.dataset.id, what, newPin: pin }); toast(j.msg + (pin ? '. PIN baru: ' + pin : ''), true); loadAdmin(); }
+  catch (err) { toast(err.message); s.value = ''; }
+};
+
+if (S) enter().catch(() => sessionStorage.removeItem('sess'));
+</script>
+</body>
+</html>
